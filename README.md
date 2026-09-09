@@ -43,22 +43,6 @@
 5. 各销售渠道的贡献对比
 6. 折扣率对销售额的影响（折扣是否带来更多销量）
 
-## 如何运行
-
-1. 安装依赖：
-
-```bash
-pip install pandas numpy matplotlib seaborn jupyter
-```
-
-2. 启动 Jupyter：
-
-```bash
-jupyter notebook
-```
-
-3. 打开 `1`，按顺序运行即可。
-
 ## 项目目录结构
 
 ```
