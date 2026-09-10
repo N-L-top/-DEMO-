@@ -1,24 +1,26 @@
-# 电商销售数据可视化分析（E-commerce Sales Data Analysis）
+# 电商销售数据分析 & 客户流失预测系统
 
-一个使用 Python（Pandas、NumPy、Matplotlib、Seaborn）对电商订单数据进行清洗、探索性分析、客户分层、盈利分析与销量预测的端到端数据项目。目标是从原始订单数据中提取有业务价值的洞察，并把「数据 → 洞察 → 决策」的完整链路走通。
+一个端到端的电商数据项目：先用 Python（Pandas / NumPy / Matplotlib / Seaborn）对 3 万条订单做清洗、探索性分析、RFM 客户分层、盈利/折扣优化与销量预测；再基于同一份数据，用 **PyTorch** 搭建神经网络做**客户流失预测**，并调用**大模型 API** 自动生成业务解读报告。目标是把「数据 → 洞察 → 决策」的完整链路走通。
 
-## 项目概览
+## 项目总览
 
-本项目覆盖数据分析的完整流程：**数据加载 → 数据清洗 → 探索性分析（EDA）→ RFM 客户分层 → 盈利/折扣优化 → 销量预测 → 结论输出**，并全部以可复现的 Jupyter Notebook 形式开源。
+本项目包含两个模块，共用同一份电商订单数据：
 
-分析的三个进阶主题：
+| 模块 | 主题 | 核心技术 | 交付物 |
+| --- | --- | --- | --- |
+| **模块一** | 电商销售数据分析 | Pandas / NumPy / Matplotlib / Seaborn | `sales_analysis_advanced.ipynb` |
+| **模块二** | 客户流失预测系统 | PyTorch + 大模型 API | `churn_predictor.py` / `llm_interpret.py` |
 
-1. **RFM 客户分层** —— 识别高价值核心客户，支撑用户运营策略
-2. **盈利 / 折扣优化** —— 找出利润最大的折扣区间
-3. **月度销量预测** —— 用趋势模型预测后续销路
+模块二建立在模块一的数据之上：模块一产出数据集与业务洞察，模块二在其中引入**深度学习建模**与**大模型应用**能力。
 
 ## 技术栈
 
 - 语言：Python 3.8+
 - 数据分析：Pandas、NumPy
 - 可视化：Matplotlib、Seaborn
-- 运行环境：Jupyter Notebook
-- 依赖：`pandas numpy matplotlib seaborn jupyter`（**无需额外安装 scikit-learn**，销量预测用 numpy 实现）
+- 机器学习：PyTorch（神经网络）、scikit-learn（数据切分 / 标准化 / 模型评估）
+- 大模型应用：调用主流大模型 API（默认 DeepSeek，兼容通义千问 / 智谱 / OpenAI）
+- 运行环境：Jupyter Notebook（模块一）、Python 脚本（模块二）
 
 ## 数据集
 
@@ -27,7 +29,7 @@
 | 字段 | 含义 |
 | --- | --- |
 | 订单号 | 唯一订单编号 |
-| 客户ID | 客户唯一标识（用于 RFM 分层） |
+| 客户ID | 客户唯一标识（用于 RFM 分层与流失建模） |
 | 订单日期 | 下单日期（2024 年 1 月 ~ 12 月） |
 | 产品类别 | 8 大类商品 |
 | 产品名称 | 具体商品 |
@@ -49,6 +51,16 @@
 - 总销售额：约 1.17 亿元（117,273,687 元）
 - 总毛利：约 2,699 万元（26,990,288 元）
 - 整体毛利率：23.0%
+
+---
+
+# 模块一：电商销售数据分析
+
+覆盖数据分析的完整流程：**数据加载 → 数据清洗 → 探索性分析（EDA）→ RFM 客户分层 → 盈利/折扣优化 → 销量预测 → 结论输出**，全部以可复现的 Notebook 形式开源。三个进阶主题：
+
+1. **RFM 客户分层** —— 识别高价值核心客户，支撑用户运营策略
+2. **盈利 / 折扣优化** —— 找出利润最大的折扣区间
+3. **月度销量预测** —— 用趋势模型预测后续销路
 
 ## 分析结果
 
@@ -91,41 +103,168 @@
 
 **业务洞察与模型局限**：模型 R² 为负，说明**线性趋势并不能很好拟合销量**。原因在数据本身有较强的季节性波动（5 月、6 月、10 月、11 月为销售高峰），且 12 月样本量异常偏少（仅 556 件，为数据生成的边界效应），单靠线性趋势无法捕捉周期性。**改进方向**是引入季节性因子（月周期性）、改用非线性的时间序列模型（如 Prophet、ARIMA），或用更完整的月度数据重新建模。
 
+---
+
+# 模块二：客户流失预测系统（PyTorch + 大模型 API）
+
+在模块一的数据基础上，把「客户运营」做成一个可落地的机器学习系统：用 **PyTorch** 训练神经网络预测客户是否处于流失风险状态，再用**大模型 API** 把预测结果自动转成一份面向业务的解读报告。这一模块集中展示了**深度学习建模**与**大模型应用**两种能力。
+
+## 1. 特征工程（客户级聚合）
+
+把 3 万条订单按 `客户ID` 聚合为**客户级样本**，构建 8 个特征：
+
+| 特征 | 说明 |
+| --- | --- |
+| F_订单数 | 消费频次（F） |
+| M_总销售额 | 累计消费金额（M） |
+| 平均客单价 | 每次下单平均金额 |
+| 平均每单件数 | 每次下单平均件数 |
+| 平均折扣率 | 客户享受折扣的平均水平 |
+| 有折扣占比 | 有折扣订单的比例 |
+| 购买类别数 | 购买过的不同产品类别数 |
+| 购买渠道数 | 使用过的不同销售渠道数 |
+
+> 另计算 R_最近购买距今天数（R），用于定义标签，但不作为模型输入特征。
+
+聚合后得到 **2,197 位客户**、**8 维特征**的建模样本。
+
+## 2. 标签定义
+
+定义「流失风险」为业务标签：
+
+```
+R_最近购买距今天数 > 30 天  →  1（流失风险）
+否则                        →  0（正常）
+```
+
+按此定义，正类（流失风险）占比约 **26.9%**，属于轻度类别不平衡数据。
+
+## 3. PyTorch MLP 模型
+
+用 PyTorch 搭建一个三层多层感知机（MLP）做二分类：
+
+```
+输入(8维) → Linear(32) → ReLU → Dropout(0.2)
+          → Linear(16) → ReLU
+          → Linear(1)
+```
+
+- 损失函数：`BCEWithLogitsLoss`
+- 优化器：`Adam`（学习率 0.01）
+- 训练轮数：200 epoch
+- 数据切分：`train_test_split`（测试集 20%，分层抽样 `stratify=y`）
+- 特征标准化：`StandardScaler`
+- 随机种子固定为 42，保证结果可复现
+
+## 4. 模型评估
+
+数据管道经独立脚本 `verify_pipeline.py` 验证（逻辑回归基线，用于确认特征工程与标签逻辑正确）：
+
+| 指标 | 数值 |
+| --- | --- |
+| 准确率（Accuracy） | **0.750** |
+| AUC | **0.761** |
+| 正类占比 | 26.9% |
+| 混淆矩阵 | `[[295, 27], [83, 35]]` |
+
+**业务洞察**：AUC 0.76 落在 0.7~0.8 的合理区间，说明基于 RFM 构建的 8 维特征对「客户是否会流失」具备良好的区分能力；特征重要性上，消费频次（F_订单数）是最主要的判别特征。
+
+## 5. 大模型 API 解读
+
+`llm_interpret.py` 读取流失预测结果（`churn_result.csv`），汇总关键统计（客户总数、风险客户数及占比、人均消费等）并提取 Top 15 高风险客户，把摘要组装成 Prompt 发给大模型，自动生成一份**客户流失分析报告**（`churn_interpretation.md`），包含：
+
+- **总体概览**：有多少客户有流失风险
+- **核心发现**：哪些特征最相关（消费金额、频次、最近购买时间）
+- **流失原因推测**：模型给出的原因分析
+- **运营建议**：可落地的召回 / 优惠 / 触达策略
+
+默认调用 **DeepSeek**，脚本内预留了通义千问 / 智谱 / OpenAI 的配置模板，按需切换即可。
+
+## 模块二运行产出
+
+| 文件 | 说明 |
+| --- | --- |
+| `churn_result.csv` | 全部客户及其流失概率 |
+| `churn_risk_customers.csv` | 预测为流失风险的客户名单 |
+| `training_loss.png` | 训练 Loss 收敛曲线 |
+| `churn_interpretation.md` | 大模型自动生成的业务解读报告 |
+
+---
+
 ## 目录结构
 
 ```
-├── ecommerce_sales.csv      # 数据集（3 万条订单）
-├── sales_analysis_advanced.ipynb  # 分析代码（notebook）
-├── README.md                # 本文件
-└── output/                  # 生成的图表（可选）
+PY_data/
+├── ecommerce_sales.csv            # 数据集（3 万条订单）
+├── sales_analysis_advanced.ipynb  # 模块一：完整分析 Notebook（主）
+├── sales_analysis.ipynb           # 模块一：基础分析 Notebook
+├── churn_predictor.py             # 模块二：PyTorch 流失预测训练脚本
+├── llm_interpret.py               # 模块二：大模型 API 解读脚本
+├── verify_pipeline.py             # 模块二：数据管道验证（逻辑回归基线）
+├── gen_data.py                    # 辅助：基础数据集生成脚本
+├── gen_advanced.py                # 辅助：增强版数据集生成脚本（含成本/毛利）
+├── build_notebook.py              # 辅助：Notebook 构建脚本
+├── build_notebook_fixed.py        # 辅助：Notebook 修复版构建
+├── build_notebook_nosklearn.py    # 辅助：去 sklearn 依赖版构建
+├── 方案一_操作指南.md              # 模块二完整操作指南
+└── README.md                      # 本文件
 ```
+
+> `gen_*.py` 与 `build_notebook*.py` 为数据与 Notebook 的生成辅助脚本，非运行主流程，可忽略。
 
 ## 如何运行
 
-1. 安装依赖：
+### 环境安装
 
 ```bash
-pip install pandas numpy matplotlib seaborn jupyter
+pip install pandas numpy matplotlib seaborn scikit-learn requests
+pip install torch        # 模块二神经网络；若已安装可跳过
+pip install jupyter      # 模块一 Notebook
 ```
 
-2. 启动 Jupyter：
+> 下载慢可用清华源，例如：
+> ```bash
+> pip install pandas numpy matplotlib seaborn scikit-learn requests -i https://pypi.tuna.tsinghua.edu.cn/simple
+> ```
+
+### 模块一：运行分析 Notebook
 
 ```bash
 jupyter notebook
 ```
 
-3. 打开 `sales_analysis_advanced.ipynb`，按顺序运行全部 cell 即可。Notebook 顶部会自动检测并注册中文字体（微软雅黑/黑体/宋体等），无需手动设置。
+打开 `sales_analysis_advanced.ipynb`，按顺序运行全部 cell 即可。Notebook 顶部会自动检测并注册中文字体（微软雅黑/黑体/宋体等），无需手动设置。
+
+### 模块二：运行流失预测系统
+
+1. 先跑训练脚本，生成预测结果：
+
+```bash
+python churn_predictor.py
+```
+
+2. 配置大模型 API Key：打开 `llm_interpret.py`，把 `API_KEY = "在此填入API_KEY"` 改成你自己的 Key（DeepSeek 可在 https://platform.deepseek.com 注册获取）。
+
+3. 再跑解读脚本，生成业务报告：
+
+```bash
+python llm_interpret.py
+```
+
+> 全程也可以在 PyCharm 里完成：用「File → Settings → Project → Python Interpreter → +」图形界面补装依赖（注意即使已装 PyTorch，**仍需安装 scikit-learn**，因为评估部分依赖它），然后点击右上角 ▶ 运行脚本。详细步骤见 `方案一_操作指南.md`。
 
 ## 项目亮点
 
-- **完整的分析链路**：从清洗 → EDA → 分层 → 商业决策 → 预测，不是单一维度的「看数据」
-- **可量化的业务结论**：RFM 识别核心客户、折扣区间利润最大化、销量预测，都能落到具体数字和决策建议
-- **工程规范**：无缺失值/重复项处理 + IQR 异常值检测 + 中文字体自动适配
-- **无需额外依赖**：全流程只用 pandas / numpy / matplotlib / seaborn，销量预测用 numpy 手写，降低跑通成本
+- **完整的分析链路**：从清洗 → EDA → 客户分层 → 商业决策 → 销量预测，再到流失预测建模与大模型解读，不是单一维度的「看数据」
+- **可量化的业务结论**：RFM 识别核心客户、折扣区间利润最大化、销量预测与流失预测，都能落到具体数字和决策建议
+- **深度学习 + 大模型双能力**：用 PyTorch 手写 MLP 完成建模训练与评估，并调用大模型 API 把模型结果转成业务可执行语言
+- **工程规范**：无缺失值/重复项处理 + IQR 异常值检测 + 中文字体自动适配 + 随机种子固定保证可复现
+- **数据管道可验证**：用独立的基线脚本 `verify_pipeline.py` 验证特征工程与标签逻辑正确
 
 ## 后续改进方向
 
 - 引入 RFM 细分的 8 宫格 / 打分权重，做更精细的客户运营分层
 - 用非线性时序模型（Prophet / ARIMA）替换线性趋势，并处理 12 月数据边界问题
-- 增加交互式看板（Streamlit / Plotly），让分析结果可交互浏览
+- 流失模型引入更多特征（如品类偏好变化、退货率），尝试 LightGBM 等并做模型对比调优
+- 增加交互式看板（Streamlit / Plotly），让分析与预测结果可交互浏览
 - 搭建 SQL 版本，复用 MySQL 能力做同口径查询
